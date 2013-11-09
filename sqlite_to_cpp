@@ -17,6 +17,7 @@ sub show_help;
 sub check_database_table;
 sub list_database_tables;
 sub showsql;
+sub show_fields;
 
 ##
 ## Program Start
@@ -28,6 +29,9 @@ if ( $action eq "list" ) {
 }
 if ( $action eq "showsql" ) {
 	showsql($sql_database_file,$sql_tablename);
+}
+if ( $action eq "showfields" ) {
+	show_fields($sql_database_file,$sql_tablename);
 }
 
 ##
@@ -44,17 +48,17 @@ sub parse_command_line()
 	$action = shift @ARGV
 		or die "error: missing action. See --help for details.\n";
 	die "error: unknown action ($action). See --help for details.\n"
-		unless $action ~~ [qw/list showsql/];
+		unless $action ~~ [qw/list showsql showfields/];
 
 
 	# These action need a DBFILE parameter
-	if ( $action ~~ [qw/list showsql/] ) {
+	if ( $action ~~ [qw/list showsql showfields/] ) {
 		$sql_database_file = shift @ARGV
 			or die "error: missing SQLite datbase filename (1st parameter)\n";
 	}
 
 	# These action need a TABLENAME parameter
-	if ( $action ~~ [qw/showsql/] ) {
+	if ( $action ~~ [qw/showsql showfields/] ) {
 		$sql_tablename = shift @ARGV
 			or die "error: missing TABLENAME parameter. See --help for details.\n";
 		die "error: invalid table name ($sql_tablename)\n"
@@ -101,6 +105,35 @@ sub showsql
 	$dbh->disconnect();
 }
 
+sub show_fields
+{
+	my ($file,$table) = @_;
+	croak "Missing 'file' parameter" unless defined $file;
+	croak "missing 'table' parameter" unless defined $table;
+
+	check_database_table($file,$table);
+
+	my $dbh = DBI->connect("dbi:SQLite:dbname=$file","","")
+		or die "Failed to load SQL database ($file): $DBI::errstr\n";
+
+	my $sth = $dbh->prepare("PRAGMA table_info($table)")
+		or die "Failed to prepare SQL statement (database='$file'): $DBI::errstr\n";
+	$sth->execute();
+
+	say join("\t",qw/NUMBER NAME TYPE NULL DEFAULT PK/);
+	while (my ($num,$name,$type,$not_null,
+		   $default,$primary_key) = $sth->fetchrow()) {
+		say join("\t",$num,$name,$type,
+				($not_null)?"NOT-NULL":"NULL",
+				($default)?$default:"-",
+				($primary_key)?"PK":"-");
+	}
+
+
+	$sth->finish();
+	$dbh->disconnect();
+}
+
 sub list_database_tables
 {
 	my ($file) = @_;
@@ -141,6 +174,16 @@ ACTIONs:
   showsql [DBFILE] [TABLE] - Show the original SQL CREATE TABLE
 		     statement for the specified [TABLE],
 		     as stored in the database (in the 'sqlite_master' table).
+  showfields [DBFILE] [TABLE] - List the fields in table [TABLE].
+                     Uses the "PRAGMA table_info()" SQLite command.
+		     The output columns are:
+		     1. Field number (zero-based)
+		     2. Field name
+		     3. Field type (TEXT/INTEGER,BLOB,etc)
+		     4. NULL or NOT-NULL
+		     5. Default Value
+		     6. PK (if primary key) or '-' (if not).
+
 
 EOF
 
