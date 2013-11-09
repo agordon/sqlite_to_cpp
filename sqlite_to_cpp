@@ -1,0 +1,119 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use DBD::SQLite;
+use DBI;
+use Getopt::Long;
+use Carp;
+use 5.014;
+
+## Global Variables
+my $sql_database_file;
+my $sql_database_table;
+my $action;
+
+sub parse_command_line();
+sub show_help;
+sub check_database_table;
+sub list_database_tables;
+
+##
+## Program Start
+##
+parse_command_line();
+
+if ( $action eq "list" ) {
+	list_database_tables($sql_database_file);
+	exit(0);
+}
+#check_database_table($sql_database_file,$sql_database_table);
+
+##
+## Program End
+##
+
+sub parse_command_line()
+{
+	my $rc = GetOptions(
+			"help" => \&show_help,
+			)
+		or die "Error in command-line arguments\n";
+
+	$action = shift @ARGV
+		or die "error: missing action. See --help for details.\n";
+	die "error: unknown action ($action). See --help for details.\n"
+		unless $action ~~ qw/list/;
+
+
+	if ( $action eq "list" ) {
+		$sql_database_file = shift @ARGV
+			or die "error: missing SQLite datbase filename (1st parameter)\n";
+	}
+
+=pod
+	$sql_database_table = shift @ARGV;
+	die "error: invalid table name ($sql_database_table)\n"
+		if defined $sql_database_table
+		&&
+		$sql_database_table !~ /^\w+$/;
+=cut
+}
+
+sub check_database_table
+{
+	my ($file,$table) = @_;
+	croak "Missing 'file' parameter" unless defined $file;
+	croak "missing 'table' parameter" unless defined $table;
+
+	die "error: sqlite database file ($file) doesn't exist\n"
+		unless -e $file;
+
+	my $dbh = DBI->connect("dbi:SQLite:dbname=$file","","")
+		or die "Failed to load SQL database ($file): $DBI::errstr\n";
+
+	my $sth = $dbh->prepare("SELECT count(*) from $table")
+		or die "Failed to prepare SQL statement (database='$file'): $DBI::errstr\n";
+}
+
+sub list_database_tables
+{
+	my ($file) = @_;
+	croak "Missing 'file' parameter" unless defined $file;
+
+	die "error: sqlite database file ($file) doesn't exist\n"
+		unless -e $file;
+
+	my $dbh = DBI->connect("dbi:SQLite:dbname=$file","","")
+		or die "Failed to load SQL database ($file): $DBI::errstr\n";
+
+	my $sth = $dbh->prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name asc;")
+		or die "Failed to prepare SQL statement (database='$file'): $DBI::errstr\n";
+	$sth->execute();
+
+	while (my ($table) = $sth->fetchrow()) {
+		print $table, "\n";
+	}
+
+	$sth->finish();
+	$dbh->disconnect();
+
+}
+
+sub show_help
+{
+	print<<"EOF";
+SQLite-to-CPP:
+  Creates template CPP code from SQLite databases
+
+Usage: sqlite_to_cpp [OPTIONS] ACTION [ACTION PARAMETERS]
+
+Options:
+  --help  - This help screen
+
+ACTIONs:
+  list [DBFILE]  -  List tables in database file DBFILE.
+
+EOF
+
+	exit;
+}
