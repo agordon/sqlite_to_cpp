@@ -1,0 +1,78 @@
+[%#
+Prints the SQLite Table as a CPP Header file.
+
+-%]
+/*
+	C++ Wrapper for SQLite table [% table %]
+*/
+#ifndef __[% table %]_Record_H__
+#define __[% table %]_Record_H__
+
+[%# NOTE: this should be <cstdint> - but it requires "-std=c++11"
+          which makes everything more complicated %]
+#include <stdint.h>
+#include <string>
+#include <vector>
+#include <ostream>
+
+class [% table %]Record
+{
+[%# TODO: make variables private and create accessors %]
+public:
+	int64_t _row_id;
+[% FOREACH f IN fields -%]
+[% SWITCH f.type -%]
+[% CASE 'TEXT' -%]
+	std::string [% f.name %];
+[% CASE 'INTEGER' -%]
+	int64_t [% f.name %];
+[% CASE 'BLOB' -%]
+	std::vector<unsigned char> [% f.name %];
+[% CASE 'REAL' -%]
+	double [% f.name %];
+[% CASE -%]
+[% THROW "Error: unknown type '$f.type' for field '$f.name'" -%]
+[% END -%]
+[% END %]
+public:
+[%# Prepare list of variables which need explicit C++ initialization %]
+[% init_vars = [ ] -%]
+[% FOREACH f IN fields -%]
+[% IF f.type == "INTEGER" || f.type == "REAL" -%]
+[% init_vars.push(f) -%]
+[% END -%]
+[% END -%]
+	[% table %]Record() :
+		_row_id(0)[% IF init_vars.size>0 %],[% END %]
+[% FOR i IN init_vars -%]
+		[% i.name %](0)[% IF loop.index+1 < init_vars.size %],[% END %]
+[% END -%]
+	{}
+	virtual ~[% table %]Record() { }
+};
+
+/* Debug Helper to dump [% table %]Record to an output stream (e.g. cerr) */
+inline std::ostream& operator <<(std::ostream& strm, const [% table %]Record& r)
+{
+	strm << "[% table %]Record = ("
+		<< "    _row_id = " << r._row_id << std::endl
+[% FOREACH f IN fields -%]
+[% SWITCH f.type -%]
+[% CASE 'TEXT' -%]
+		<< "    [% f.name %] = \"" << r.[% f.name %] << "\"" << std::endl
+[% CASE 'INTEGER' -%]
+		<< "    [% f.name %] = " << r.[% f.name %] << std::endl
+[% CASE 'REAL' -%]
+		<< "    [% f.name %] = " << r.[% f.name %] << std::endl
+[% CASE 'BLOB' -%]
+		<< "    [% f.name %] = "(BLOB, not printed)" << std::endl
+[% CASE -%]
+[% THROW "Error: unknown type '$f.type' for field '$f.name'" -%]
+[% END -%]
+[% END -%]
+		<< ")" << std::endl;
+	return strm;
+}
+
+
+#endif

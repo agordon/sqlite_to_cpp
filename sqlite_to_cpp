@@ -23,6 +23,7 @@ sub list_database_tables;
 sub showsql;
 sub show_fields;
 sub get_table_fields;
+sub print_cpp_header;
 
 ##
 ## Program Start
@@ -44,6 +45,9 @@ if ( $action eq "showsql" ) {
 if ( $action eq "showfields" ) {
 	show_fields($sql_database_file,$sql_tablename);
 }
+if ( $action eq "cppheader" ) {
+	print_cpp_header($sql_database_file,$sql_tablename);
+}
 
 ##
 ## Program End
@@ -59,17 +63,17 @@ sub parse_command_line()
 	$action = shift @ARGV
 		or die "error: missing action. See --help for details.\n";
 	die "error: unknown action ($action). See --help for details.\n"
-		unless $action ~~ [qw/list showsql showfields/];
+		unless $action ~~ [qw/list showsql showfields cppheader/];
 
 
 	# These action need a DBFILE parameter
-	if ( $action ~~ [qw/list showsql showfields/] ) {
+	if ( $action ~~ [qw/list showsql showfields cppheader/] ) {
 		$sql_database_file = shift @ARGV
 			or die "error: missing SQLite datbase filename (1st parameter)\n";
 	}
 
 	# These action need a TABLENAME parameter
-	if ( $action ~~ [qw/showsql showfields/] ) {
+	if ( $action ~~ [qw/showsql showfields cppheader/] ) {
 		$sql_tablename = shift @ARGV
 			or die "error: missing TABLENAME parameter. See --help for details.\n";
 		die "error: invalid table name ($sql_tablename)\n"
@@ -155,6 +159,15 @@ sub show_fields
 	my $fields_ref = get_table_fields(@_);
 
 	$tt->process('show_fields.tt', { fields=>$fields_ref } )
+		|| die $tt->error(),"\n";
+}
+
+sub print_cpp_header
+{
+	my $fields_ref = get_table_fields(@_);
+
+	$tt->process('cppheader.tt', { table=>$sql_tablename,
+				       fields=>$fields_ref } )
 		|| die $tt->error(),"\n";
 }
 
