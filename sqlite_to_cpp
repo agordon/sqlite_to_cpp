@@ -9,13 +9,14 @@ use 5.014;
 
 ## Global Variables
 my $sql_database_file;
-my $sql_database_table;
+my $sql_tablename;
 my $action;
 
 sub parse_command_line();
 sub show_help;
 sub check_database_table;
 sub list_database_tables;
+sub showsql;
 
 ##
 ## Program Start
@@ -24,9 +25,10 @@ parse_command_line();
 
 if ( $action eq "list" ) {
 	list_database_tables($sql_database_file);
-	exit(0);
 }
-#check_database_table($sql_database_file,$sql_database_table);
+if ( $action eq "showsql" ) {
+	showsql($sql_database_file,$sql_tablename);
+}
 
 ##
 ## Program End
@@ -42,21 +44,22 @@ sub parse_command_line()
 	$action = shift @ARGV
 		or die "error: missing action. See --help for details.\n";
 	die "error: unknown action ($action). See --help for details.\n"
-		unless $action ~~ qw/list/;
+		unless $action ~~ [qw/list showsql/];
 
 
-	if ( $action eq "list" ) {
+	# These action need a DBFILE parameter
+	if ( $action ~~ [qw/list showsql/] ) {
 		$sql_database_file = shift @ARGV
 			or die "error: missing SQLite datbase filename (1st parameter)\n";
 	}
 
-=pod
-	$sql_database_table = shift @ARGV;
-	die "error: invalid table name ($sql_database_table)\n"
-		if defined $sql_database_table
-		&&
-		$sql_database_table !~ /^\w+$/;
-=cut
+	# These action need a TABLENAME parameter
+	if ( $action ~~ [qw/showsql/] ) {
+		$sql_tablename = shift @ARGV
+			or die "error: missing TABLENAME parameter. See --help for details.\n";
+		die "error: invalid table name ($sql_tablename)\n"
+			unless $sql_tablename =~ /^\w+$/;
+	}
 }
 
 sub check_database_table
@@ -73,6 +76,29 @@ sub check_database_table
 
 	my $sth = $dbh->prepare("SELECT count(*) from $table")
 		or die "Failed to prepare SQL statement (database='$file'): $DBI::errstr\n";
+}
+
+sub showsql
+{
+	my ($file,$table) = @_;
+	croak "Missing 'file' parameter" unless defined $file;
+	croak "missing 'table' parameter" unless defined $table;
+
+	check_database_table($file,$table);
+
+	my $dbh = DBI->connect("dbi:SQLite:dbname=$file","","")
+		or die "Failed to load SQL database ($file): $DBI::errstr\n";
+
+	my $sth = $dbh->prepare("SELECT sql FROM sqlite_master WHERE type='table' and name='$table';")
+		or die "Failed to prepare SQL statement (database='$file'): $DBI::errstr\n";
+	$sth->execute();
+
+	while (my ($sql) = $sth->fetchrow()) {
+		print $sql, "\n";
+	}
+
+	$sth->finish();
+	$dbh->disconnect();
 }
 
 sub list_database_tables
@@ -112,6 +138,9 @@ Options:
 
 ACTIONs:
   list [DBFILE]  -  List tables in database file DBFILE.
+  showsql [DBFILE] [TABLE] - Show the original SQL CREATE TABLE
+		     statement for the specified [TABLE],
+		     as stored in the database (in the 'sqlite_master' table).
 
 EOF
 
