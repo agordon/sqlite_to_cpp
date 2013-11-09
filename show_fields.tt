@@ -1,0 +1,16 @@
+[%#
+Prints the SQLite fields as a simple textual tabulated outout.
+The columns are:
+  1. field number
+  2. field name
+  3. field type (TEXT/INTEGER/BLOB/etc.)
+  4. "NOT-NULL" or "-" (if NULL is allowed)
+  5. Default value or "-" (if no default value)
+  6. "PK" (if field is primary key) or "-"
+
+Fields are tab-separated.
+-%]
+NUMBER	NAME	TYPE	NOTNULL	DEFAULT	PK
+[% FOREACH f IN fields -%]
+[% f.cid%]	[%f.name%]	[%f.type%]	[% IF f.notnull %]NOT-NULL[%ELSE%]-[%END%]	[% IF f.dflt_value %][%f.dflt_value%][%ELSE%]-[%END%]	[%IF f.pk %]PK[%ELSE%]-[%END%]
+[% END -%]

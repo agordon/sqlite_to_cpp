@@ -5,12 +5,16 @@ use DBD::SQLite;
 use DBI;
 use Getopt::Long;
 use Carp;
+use Template;
+use FindBin;
 use 5.014;
+use Data::Dumper;
 
 ## Global Variables
 my $sql_database_file;
 my $sql_tablename;
 my $action;
+my $tt ; # Template Toolkit Engine
 
 sub parse_command_line();
 sub show_help;
@@ -18,10 +22,17 @@ sub check_database_table;
 sub list_database_tables;
 sub showsql;
 sub show_fields;
+sub get_table_fields;
 
 ##
 ## Program Start
 ##
+
+# Initialize the template Toolkit
+$tt = Template->new({
+	INCLUDE_PATH => "$FindBin::Bin"
+	}) || die "$Template::ERROR\n";
+
 parse_command_line();
 
 if ( $action eq "list" ) {
@@ -105,7 +116,7 @@ sub showsql
 	$dbh->disconnect();
 }
 
-sub show_fields
+sub get_table_fields
 {
 	my ($file,$table) = @_;
 	croak "Missing 'file' parameter" unless defined $file;
@@ -120,6 +131,7 @@ sub show_fields
 		or die "Failed to prepare SQL statement (database='$file'): $DBI::errstr\n";
 	$sth->execute();
 
+=pod
 	say join("\t",qw/NUMBER NAME TYPE NULL DEFAULT PK/);
 	while (my ($num,$name,$type,$not_null,
 		   $default,$primary_key) = $sth->fetchrow()) {
@@ -128,10 +140,22 @@ sub show_fields
 				($default)?$default:"-",
 				($primary_key)?"PK":"-");
 	}
+=cut
 
+	my $ref = $sth->fetchall_arrayref({});
 
 	$sth->finish();
 	$dbh->disconnect();
+
+	return $ref;
+}
+
+sub show_fields
+{
+	my $fields_ref = get_table_fields(@_);
+
+	$tt->process('show_fields.tt', { fields=>$fields_ref } )
+		|| die $tt->error(),"\n";
 }
 
 sub list_database_tables
