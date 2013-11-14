@@ -28,8 +28,16 @@ sub get_table_fields;
 ##   the table information is printed using a known template file.
 my %simple_templates = (
 	"cppheader" => "cppheader.tt",
-	"showfields" => "show_fields.tt"
+	"showfields" => "show_fields.tt",
+	"cpploader" => "cpploader.tt"
 );
+
+## List of all actions - used for parameter verification
+my @actions_all = ( "list", "showsql", keys %simple_templates ) ;
+## Actions which need a parameter of SQL Database file
+my @actions_need_sql_database = ( "list", "showsql", keys %simple_templates ) ;
+## Actions which need a parameter of SQL Table
+my @actions_need_sql_table = ( "showsql", keys %simple_templates ) ;
 
 ##
 ## Program Start
@@ -69,17 +77,17 @@ sub parse_command_line()
 	$action = shift @ARGV
 		or die "error: missing action. See --help for details.\n";
 	die "error: unknown action ($action). See --help for details.\n"
-		unless $action ~~ [qw/list showsql showfields cppheader/];
+		unless $action ~~ @actions_all ;
 
 
 	# These action need a DBFILE parameter
-	if ( $action ~~ [qw/list showsql showfields cppheader cpploader/] ) {
+	if ( $action ~~ @actions_need_sql_database ) {
 		$sql_database_file = shift @ARGV
 			or die "error: missing SQLite datbase filename (1st parameter)\n";
 	}
 
 	# These action need a TABLENAME parameter
-	if ( $action ~~ [qw/showsql showfields cppheader cpploader/] ) {
+	if ( $action ~~ @actions_need_sql_table ) {
 		$sql_tablename = shift @ARGV
 			or die "error: missing TABLENAME parameter. See --help for details.\n";
 		die "error: invalid table name ($sql_tablename)\n"
