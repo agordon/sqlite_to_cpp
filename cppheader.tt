@@ -65,7 +65,7 @@ inline std::ostream& operator <<(std::ostream& strm, const [% table %]Record& r)
 [% CASE 'REAL' -%]
 		<< "    [% f.name %] = " << r.[% f.name %] << std::endl
 [% CASE 'BLOB' -%]
-		<< "    [% f.name %] = "(BLOB, not printed)" << std::endl
+		<< "    [% f.name %] = (BLOB, not printed)" << std::endl
 [% CASE -%]
 [% THROW "Error: unknown type '$f.type' for field '$f.name'" -%]
 [% END -%]
