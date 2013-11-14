@@ -31,7 +31,8 @@ sub print_cpp_header;
 
 # Initialize the template Toolkit
 $tt = Template->new({
-	INCLUDE_PATH => "$FindBin::Bin"
+	INCLUDE_PATH => "$FindBin::Bin",
+	ANYCASE => 1,
 	}) || die "$Template::ERROR\n";
 
 parse_command_line();
