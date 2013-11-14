@@ -21,9 +21,15 @@ sub show_help;
 sub check_database_table;
 sub list_database_tables;
 sub showsql;
-sub show_fields;
+sub print_table_by_template;
 sub get_table_fields;
-sub print_cpp_header;
+
+## These ACTIONS all operate similarly:
+##   the table information is printed using a known template file.
+my %simple_templates = (
+	"cppheader" => "cppheader.tt",
+	"showfields" => "show_fields.tt"
+);
 
 ##
 ## Program Start
@@ -43,11 +49,10 @@ if ( $action eq "list" ) {
 if ( $action eq "showsql" ) {
 	showsql($sql_database_file,$sql_tablename);
 }
-if ( $action eq "showfields" ) {
-	show_fields($sql_database_file,$sql_tablename);
-}
-if ( $action eq "cppheader" ) {
-	print_cpp_header($sql_database_file,$sql_tablename);
+if ( exists $simple_templates{$action} ) {
+	my $template = $simple_templates{$action};
+	print_table_by_template($template,
+		$sql_database_file, $sql_tablename);
 }
 
 ##
@@ -68,13 +73,13 @@ sub parse_command_line()
 
 
 	# These action need a DBFILE parameter
-	if ( $action ~~ [qw/list showsql showfields cppheader/] ) {
+	if ( $action ~~ [qw/list showsql showfields cppheader cpploader/] ) {
 		$sql_database_file = shift @ARGV
 			or die "error: missing SQLite datbase filename (1st parameter)\n";
 	}
 
 	# These action need a TABLENAME parameter
-	if ( $action ~~ [qw/showsql showfields cppheader/] ) {
+	if ( $action ~~ [qw/showsql showfields cppheader cpploader/] ) {
 		$sql_tablename = shift @ARGV
 			or die "error: missing TABLENAME parameter. See --help for details.\n";
 		die "error: invalid table name ($sql_tablename)\n"
@@ -155,19 +160,14 @@ sub get_table_fields
 	return $ref;
 }
 
-sub show_fields
+sub print_table_by_template
 {
+	my ($template_file) = shift ;
+	croak "Internal error: template file ($template_file) not found!"
+		unless -e "$template_file";
 	my $fields_ref = get_table_fields(@_);
 
-	$tt->process('show_fields.tt', { fields=>$fields_ref } )
-		|| die $tt->error(),"\n";
-}
-
-sub print_cpp_header
-{
-	my $fields_ref = get_table_fields(@_);
-
-	$tt->process('cppheader.tt', { table=>$sql_tablename,
+	$tt->process($template_file, { table=>$sql_tablename,
 				       fields=>$fields_ref } )
 		|| die $tt->error(),"\n";
 }
