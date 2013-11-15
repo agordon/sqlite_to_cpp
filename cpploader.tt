@@ -1,0 +1,114 @@
+[%#
+Prints the SQLite Table as a CPP Header+Code file - for loading
+From an SQLite database.
+
+This template prints BOTH the header and the CPP file -
+So it needs a bit of manual post-processing.
+-%]
+#error This is an auto-generated file. Please separate the HEADER part and the CPP part into two files.
+
+#error Here starts the HEADER file
+/*
+	C++ Wrapper for SQLite table [% table %]
+*/
+#ifndef __[% table %]_Record_Loader_H__
+#define __[% table %]_Record_Loader_H__
+
+#include "[% table %]Record.h"
+
+#include <unordered_map>
+#include <ostream>
+#include <sqlite3.h>
+
+typedef std::unordered_map<int,[% table %]Record> [% table %]Records;
+
+/* Debug Helper to dump All the records from [% table %]Records
+   to an output stream (e.g. cerr) */
+inline std::ostream& operator <<(std::ostream& strm, const [% table %]Records& r)
+{
+        strm << "[% table %] table content =" << std::endl;
+	std::vector<[% table %]Records::key_type> keys;
+	keys.reserve(r.size());
+	for (auto i = r.begin(); i != r.end(); ++i)
+		keys.push_back(i->first);
+	std::sort(keys.begin(),keys.end());
+
+	for (size_t i=0;i<keys.size();++i) {
+		auto key = keys[i];
+		auto v = r.find(key);
+		strm << "-- record " << key << " --" << std::endl;
+		strm << v->second;
+		strm << "-- end record " << key << " -- " << std::endl;
+	}
+        return strm;
+}
+
+[% table %]Records Load[% table %]Records(sqlite3 *db);
+
+#endif
+
+
+#error Here Starts the CPP file
+
+#include <algorithm>
+#include <iostream>
+#include <cstring>
+#include <err.h>
+#include "idd_common.h"
+#include "[% table %]Record.h"
+#include "[% table %]RecordLoader.h"
+
+using namespace std;
+
+[% table %]Records Load[% table %]Records(sqlite3 *db)
+{
+	[% table %]Records data;
+        sqlite3_stmt *stmt=NULL;
+
+	const char *query =
+		"Select " \
+		  "ROWID, " \
+[% FOREACH f IN fields -%]
+		  "[% f.name %][% IF loop.index+1<fields.size %],[% END %] " \
+[% END -%]
+		"FROM " \
+		"  [% table %] ";
+
+	int i = sqlite3_prepare_v2(db,query,-1,&stmt,NULL);
+	if (i!=SQLITE_OK)
+		errx(1,"sqlite3_prepare_v2 (%s) failed: %s",
+			query, sqlite3_errmsg(db));
+
+	while ( (i=sqlite3_step(stmt))==SQLITE_ROW ) {
+		[% table %]Record p;
+		p._row_id = (size_t)sqlite3_column_int(stmt,0);
+[% FOREACH f IN fields -%]
+[% SWITCH f.type -%]
+[% CASE 'TEXT' -%]
+		p.[% f.name %] = sqlite3_get_text_column(stmt,[% loop.index+1 %]);
+[% CASE 'INTEGER' -%]
+		p.[% f.name %] = sqlite3_column_int(stmt,[% loop.index+1 %]);
+[% CASE 'BLOB' -%]
+		const void* ptr = sqlite3_column_blob(stmt,[% loop.index+1 %]);
+		size_t blob_size = sqlite3_column_bytes(stmt,[% loop.index+1 %]);
+		p.[% f.name %].resize(blob_size);
+		memcpy(p.[% f.name %].data(),ptr,blob_size);
+[% CASE 'REAL' -%]
+		p.[% f.name %] = sqlite3_column_real(stmt,[% loop.index+1 %]);
+[% CASE -%]
+[% THROW "Error: unknown type '$f.type' for field '$f.name'" -%]
+[% END -%]
+[% END %]
+		data.insert(pair<size_t,[% table %]Record>(p._row_id,p));
+	}
+	if (i!=SQLITE_DONE)
+		errx(1,"sqlite3_step failed (code=%d=%s): %s",
+				i,sqlite3_errstr(i),sqlite3_errmsg(db));
+
+	i = sqlite3_finalize(stmt);
+	if (i!=SQLITE_OK)
+		errx(1,"sqlite3_finalize failed: %s", sqlite3_errmsg(db));
+
+	return data;
+}
+
