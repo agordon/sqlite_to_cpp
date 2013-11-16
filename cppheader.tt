@@ -39,7 +39,7 @@ public:
     ALSO, cache the time as string and 'struct tm' - to
     save some work later. -%]
 [% CASE 'TIMESTAMP' -%]
-	time_t [% f.name %]_epoch;
+	time_t [% f.name %];
 	struct tm [% f.name %]_tm;
 	std::string [% f.name %]_str;
 [% CASE -%]
@@ -50,7 +50,7 @@ public:
 [%# Prepare list of variables which need explicit C++ initialization %]
 [% init_vars = [ ] -%]
 [% FOREACH f IN fields -%]
-[% IF f.type == "INTEGER" || f.type == "REAL" -%]
+[% IF f.type == "INTEGER" || f.type == "REAL" || f.type == "FLOAT" || f.type == "TIMESTAMP" -%]
 [% init_vars.push(f) -%]
 [% END -%]
 [% END -%]

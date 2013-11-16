@@ -54,11 +54,15 @@ inline std::ostream& operator <<(std::ostream& strm, const [% table %]Records& r
 #include <iostream>
 #include <cstring>
 #include <err.h>
+#include <time.h>
 #include "idd_common.h"
 #include "[% table %]Record.h"
 #include "[% table %]RecordLoader.h"
 
 using namespace std;
+
+#error This is an auto-generated CPP file - it will require some manual tweaking before it compiles properly.
+
 
 [% table %]Records Load[% table %]Records(sqlite3 *db)
 {
@@ -69,7 +73,11 @@ using namespace std;
 		"Select " \
 		  "ROWID, " \
 [% FOREACH f IN fields -%]
+  [%- IF f.type == "TIMESTAMP" -%]
+		  "STRFTIME('%s',[% f.name %]+978307200,'unixepoch','localtime')[% IF loop.index+1<fields.size %],[% END %] " \
+  [%- ELSE -%]
 		  "[% f.name %][% IF loop.index+1<fields.size %],[% END %] " \
+  [%- END %]
 [% END -%]
 		"FROM " \
 		"  [% table %] ";
@@ -86,6 +94,8 @@ using namespace std;
 [% SWITCH f.type -%]
 [% CASE 'TEXT' -%]
 		p.[% f.name %] = sqlite3_get_text_column(stmt,[% loop.index+1 %]);
+[% CASE 'VARCHAR' -%]
+		p.[% f.name %] = sqlite3_get_text_column(stmt,[% loop.index+1 %]);
 [% CASE 'INTEGER' -%]
 		p.[% f.name %] = sqlite3_column_int(stmt,[% loop.index+1 %]);
 [% CASE 'BLOB' -%]
@@ -94,7 +104,19 @@ using namespace std;
 		p.[% f.name %].resize(blob_size);
 		memcpy(p.[% f.name %].data(),ptr,blob_size);
 [% CASE 'REAL' -%]
-		p.[% f.name %] = sqlite3_column_real(stmt,[% loop.index+1 %]);
+		p.[% f.name %] = sqlite3_column_double(stmt,[% loop.index+1 %]);
+[% CASE 'FLOAT' -%]
+		p.[% f.name %] = sqlite3_column_double(stmt,[% loop.index+1 %]);
+[%# !!!NOTE!!! assume it's iOS TIMESTAP, as Mac Absolute time,
+    and convert it to unix epoch time.
+    ALSO, cache the time as string and 'struct tm' - to
+    save some work later. -%]
+[% CASE 'TIMESTAMP' -%]
+		p.[% f.name %] = sqlite3_column_int(stmt, [% loop.index+1 %]) ;
+		localtime_r(&p.[% f.name %], &p.[% f.name %]_tm);
+		char tmptime[100];
+		strftime(tmptime,sizeof(tmptime),"%Y-%m-%d %H:%M:%S",&p.[% f.name %]_tm);
+		p.[% f.name %]_str = tmptime;
 [% CASE -%]
 [% THROW "Error: unknown type '$f.type' for field '$f.name'" -%]
 [% END -%]
