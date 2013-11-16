@@ -24,12 +24,24 @@ public:
 [% SWITCH f.type -%]
 [% CASE 'TEXT' -%]
 	std::string [% f.name %];
+[% CASE 'VARCHAR' -%]
+	std::string [% f.name %];
 [% CASE 'INTEGER' -%]
 	int64_t [% f.name %];
 [% CASE 'BLOB' -%]
 	std::vector<unsigned char> [% f.name %];
 [% CASE 'REAL' -%]
 	double [% f.name %];
+[% CASE 'FLOAT' -%]
+	double [% f.name %];
+[%# !!!NOTE!!! assume it's iOS TIMESTAP, as Mac Absolute time,
+    and convert it to unix epoch time.
+    ALSO, cache the time as string and 'struct tm' - to
+    save some work later. -%]
+[% CASE 'TIMESTAMP' -%]
+	time_t [% f.name %]_epoch;
+	struct tm [% f.name %]_tm;
+	std::string [% f.name %]_str;
 [% CASE -%]
 [% THROW "Error: unknown type '$f.type' for field '$f.name'" -%]
 [% END -%]
@@ -60,12 +72,18 @@ inline std::ostream& operator <<(std::ostream& strm, const [% table %]Record& r)
 [% SWITCH f.type -%]
 [% CASE 'TEXT' -%]
 		<< "    [% f.name %] = \"" << r.[% f.name %] << "\"" << std::endl
+[% CASE 'VARCHAR' -%]
+		<< "    [% f.name %] = \"" << r.[% f.name %] << "\"" << std::endl
 [% CASE 'INTEGER' -%]
 		<< "    [% f.name %] = " << r.[% f.name %] << std::endl
 [% CASE 'REAL' -%]
 		<< "    [% f.name %] = " << r.[% f.name %] << std::endl
+[% CASE 'FLOAT' -%]
+		<< "    [% f.name %] = " << r.[% f.name %] << std::endl
 [% CASE 'BLOB' -%]
 		<< "    [% f.name %] = (BLOB, not printed)" << std::endl
+[% CASE 'TIMESTAMP' -%]
+		<< "    [% f.name %] = " << r.[% f.name %]_str << std::endl
 [% CASE -%]
 [% THROW "Error: unknown type '$f.type' for field '$f.name'" -%]
 [% END -%]
